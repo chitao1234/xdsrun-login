@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -24,7 +23,6 @@ const (
 
 var servers = []string{"https://w.xidian.edu.cn", "https://10.255.44.33"}
 
-
 // ================================================================================= //
 //                                 主要业务流程                                      //
 // ================================================================================= //
@@ -35,17 +33,17 @@ func PerformLogin(client *http.Client, username, password, domain string) {
 	var success bool
 
 	for _, host := range servers {
-		fmt.Printf("正在尝试连接服务器: %s ...\n", host)
+		uiLogf("正在尝试连接服务器: %s ...\n", host)
 
 		userIP, err := getIpAddress(client, host)
 		if err != nil {
-			fmt.Printf("从 %s 获取IP失败: %v\n", host, err)
+			uiLogf("从 %s 获取IP失败: %v\n", host, err)
 			continue
 		}
 
 		token, err := getChallengeToken(client, host, userIP, fullUsername)
 		if err != nil {
-			fmt.Printf("从 %s 获取Token失败: %v\n", host, err)
+			uiLogf("从 %s 获取Token失败: %v\n", host, err)
 			continue
 		}
 
@@ -55,30 +53,31 @@ func PerformLogin(client *http.Client, username, password, domain string) {
 
 		err = finalLogin(client, host, userIP, hmd5, info, chksum, fullUsername)
 		if err != nil {
-			fmt.Printf("向 %s 发起登录失败: %v\n", host, err)
+			uiLogf("向 %s 发起登录失败: %v\n", host, err)
 			continue
 		}
 
 		// 只要有一个服务器成功，就标记并跳出循环
-		fmt.Printf("login to \"%s\" success! IP \"%s\" is now authorized!\n", host, userIP)
+		uiLogf("login to \"%s\" success! IP \"%s\" is now authorized!\n", host, userIP)
 		success = true
 		break
 	}
 
 	if !success {
-		log.Fatal("错误: 所有服务器均尝试失败，请检查是否已正确连接到校园网。")
+		uiLogln("错误: 所有服务器均尝试失败，请检查是否已正确连接到校园网。")
 	}
 }
 
 // checkStatus 执行在线状态查询流程
-func CheckStatus(client *http.Client) {
+func CheckStatus(client *http.Client) bool {
 	var success bool
+	loggedIn := false
 	for _, host := range servers {
-		fmt.Printf("正在尝试连接服务器: %s ...\n", host)
+		uiLogf("正在尝试连接服务器: %s ...\n", host)
 
 		userIP, err := getIpAddress(client, host)
 		if err != nil {
-			fmt.Printf("从 %s 获取IP失败: %v\n", host, err)
+			uiLogf("从 %s 获取IP失败: %v\n", host, err)
 			continue
 		}
 
@@ -88,7 +87,7 @@ func CheckStatus(client *http.Client) {
 
 		respBody, err := makeRequest(client, apiURL)
 		if err != nil {
-			fmt.Printf("向 %s 查询状态失败: %v\n", host, err)
+			uiLogf("向 %s 查询状态失败: %v\n", host, err)
 			continue
 		}
 
@@ -98,30 +97,32 @@ func CheckStatus(client *http.Client) {
 
 		var statusInfo map[string]interface{}
 		if err := json.Unmarshal([]byte(jsonStr), &statusInfo); err != nil {
-			fmt.Printf("解析来自 %s 的状态信息失败: %v\n", host, err)
+			uiLogf("解析来自 %s 的状态信息失败: %v\n", host, err)
 			continue
 		}
 
 		// 检查并打印状态
 		if errStr, ok := statusInfo["error"].(string); ok && errStr == "ok" {
-			fmt.Println("--- 当前在线状态 ---")
-			fmt.Printf("账号: %v\n", statusInfo["user_name"])
-			fmt.Printf("姓名: %v\n", statusInfo["real_name"])
-			fmt.Printf("已用流量: %.2f MB\n", statusInfo["sum_bytes"].(float64)/(1024*1024))
-			fmt.Printf("已用时长: %.2f 分钟\n", statusInfo["sum_seconds"].(float64)/60)
-			fmt.Printf("账户余额: %.2f\n", statusInfo["user_balance"].(float64))
-			fmt.Printf("当前IP: %v\n", statusInfo["online_ip"])
-			fmt.Println("--------------------")
+			uiLogln("--- 当前在线状态 ---")
+			uiLogf("账号: %v\n", statusInfo["user_name"])
+			uiLogf("姓名: %v\n", statusInfo["real_name"])
+			uiLogf("已用流量: %.2f MB\n", statusInfo["sum_bytes"].(float64)/(1024*1024))
+			uiLogf("已用时长: %.2f 分钟\n", statusInfo["sum_seconds"].(float64)/60)
+			uiLogf("账户余额: %.2f\n", statusInfo["user_balance"].(float64))
+			uiLogf("当前IP: %v\n", statusInfo["online_ip"])
+			uiLogln("--------------------")
+			loggedIn = true
 		} else {
-			fmt.Printf("当前未登录或状态异常。服务器消息: %v\n", statusInfo["error_msg"])
+			uiLogf("当前未登录或状态异常。服务器消息: %v\n", statusInfo["error_msg"])
 		}
 
 		success = true
 		break
 	}
 	if !success {
-		log.Fatal("错误: 所有服务器均尝试失败，请检查是否已正确连接到校园网。")
+		uiLogln("错误: 所有服务器均尝试失败，请检查是否已正确连接到校园网。")
 	}
+	return loggedIn
 }
 
 // ================================================================================= //
@@ -234,4 +235,3 @@ func calculateChecksum(token, userIP, hmd5, info string, fullUsername string) st
 	h.Write([]byte(builder.String()))
 	return hex.EncodeToString(h.Sum(nil))
 }
-
