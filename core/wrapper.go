@@ -44,8 +44,8 @@ func uiLogln(msg string) {
 	log.Println(msg)
 }
 
-func PerformLoginWithDefaultClient(username, password, domain string) {
-	PerformLogin(client, username, password, domain)
+func PerformLoginWithDefaultClient(username, password, domain string) bool {
+	return PerformLogin(client, username, password, domain)
 }
 
 func CheckStatusWithDefaultClient() bool {

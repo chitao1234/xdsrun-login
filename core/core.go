@@ -28,7 +28,7 @@ var servers = []string{"https://w.xidian.edu.cn", "https://10.255.44.33"}
 // ================================================================================= //
 
 // performLogin 执行完整的登录流程
-func PerformLogin(client *http.Client, username, password, domain string) {
+func PerformLogin(client *http.Client, username, password, domain string) bool {
 	fullUsername := username + domain
 	var success bool
 
@@ -66,6 +66,7 @@ func PerformLogin(client *http.Client, username, password, domain string) {
 	if !success {
 		uiLogln("错误: 所有服务器均尝试失败，请检查是否已正确连接到校园网。")
 	}
+    return success
 }
 
 // checkStatus 执行在线状态查询流程
